@@ -345,19 +345,11 @@ const AssistantMessage: FC = () => {
         className="text-foreground px-2 leading-relaxed wrap-break-word [contain-intrinsic-size:auto_24px] [content-visibility:auto]"
       >
         <MessagePrimitive.GroupedParts
-          groupBy={(part) => {
-            // ask_user is a single interactive tool call that demands user
-            // input — collapsing it inside "N tool calls ›" would bury the
-            // question. Leave it ungrouped so it renders standalone.
-            if (part.type === "tool-call" && part.toolName === "ask_user") {
-              return null;
-            }
-            return groupPartByType({
-              reasoning: ["group-chainOfThought", "group-reasoning"],
-              "tool-call": ["group-chainOfThought", "group-tool"],
-              "standalone-tool-call": [],
-            })(part);
-          }}
+          groupBy={groupPartByType({
+            reasoning: ["group-chainOfThought", "group-reasoning"],
+            "tool-call": ["group-chainOfThought", "group-tool"],
+            "standalone-tool-call": [],
+          })}
         >
           {({ part, children }) => {
             switch (part.type) {
