@@ -2,7 +2,10 @@
 
 import { useRef } from "react";
 import { ChevronRightIcon, CheckIcon } from "lucide-react";
-import type { ToolCallMessagePartComponent } from "@assistant-ui/react";
+import {
+  useAssistantToolUI,
+  type ToolCallMessagePartComponent,
+} from "@assistant-ui/react";
 import { cn } from "../cn";
 
 type AskUserArgs = {
@@ -15,7 +18,7 @@ type AskUserResult = {
   index: number;
 };
 
-export const AskUserTool: ToolCallMessagePartComponent<
+const AskUserTool: ToolCallMessagePartComponent<
   AskUserArgs,
   AskUserResult
 > = ({ args, result, status, addResult }) => {
@@ -71,3 +74,15 @@ export const AskUserTool: ToolCallMessagePartComponent<
     </div>
   );
 };
+
+export function AskUserToolUI() {
+  // useAssistantToolUI is deprecated in favor of defineToolkit (server-side
+  // tool registry). Keep using the hook here until the runtime is restructured
+  // to push tool definitions through defineToolkit.
+  useAssistantToolUI({
+    toolName: "ask_user",
+    render: AskUserTool,
+    display: "standalone",
+  });
+  return null;
+}
