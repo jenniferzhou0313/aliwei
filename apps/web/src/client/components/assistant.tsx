@@ -11,6 +11,7 @@ import {
 } from "@assistant-ui/react-ai-sdk";
 import { lastAssistantMessageIsCompleteWithToolCalls, type UIMessage } from "ai";
 import { Thread } from "@aliwei/ui/assistant-ui/thread";
+import { AskUserTool } from "@aliwei/ui/assistant-ui/ask-user-tool";
 import {
   SidebarInset,
   SidebarProvider,
@@ -20,6 +21,7 @@ import { Separator } from "@aliwei/ui/primitives/separator";
 import { cn } from "@aliwei/ui/cn";
 import type { Tool, ThreadMeta } from "@aliwei/domain/types";
 import { TOOLS, findTool } from "@aliwei/domain/tools";
+import { ASK_USER_TOOL } from "@aliwei/domain/prompts";
 import { ThreadContext } from "@/client/contexts/thread-context";
 import { ThreadListSidebar } from "@/client/components/threadlist-sidebar";
 import { apiFetch, apiUrl } from "@/client/lib/api";
@@ -120,7 +122,11 @@ function ChatView({
     transport: new AssistantChatTransport({
       api: apiUrl("/chat"),
       credentials: "include",
-      body: { threadId, toolId: activeTool?.id ?? null },
+      body: {
+        threadId,
+        toolId: activeTool?.id ?? null,
+        tools: ASK_USER_TOOL,
+      },
     }),
   });
 
@@ -134,7 +140,7 @@ function ChatView({
     <AssistantRuntimeProvider runtime={runtime}>
       <InstructionsInjector systemPrompt={activeTool?.systemPrompt ?? ""} />
       <ThreadCompletionDetector onComplete={stableOnMessagesChanged} />
-      <Thread components={{ Welcome: ToolWelcome }} />
+      <Thread components={{ Welcome: ToolWelcome, ToolFallback: AskUserTool }} />
     </AssistantRuntimeProvider>
   );
 }
