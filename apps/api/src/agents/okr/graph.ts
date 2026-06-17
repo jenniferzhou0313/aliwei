@@ -24,6 +24,7 @@ export async function okrStreamChat(opts: {
   userMessage: HumanMessage;
   threadId: string;
   toolId: string;
+  onFinish?: (text: string) => void | Promise<void>;
 }): Promise<Response> {
   return streamGraphToUIMessageStream(
     opts.graph,
@@ -33,5 +34,6 @@ export async function okrStreamChat(opts: {
       toolId: opts.toolId,
     },
     opts.threadId,
+    opts.onFinish,
   );
 }

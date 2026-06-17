@@ -22,11 +22,12 @@ export async function jargonStreamChat(opts: {
   userMessage: HumanMessage;
   threadId: string;
   toolId: string;
+  onFinish?: (text: string) => void | Promise<void>;
 }): Promise<Response> {
   const input = {
     messages: [opts.userMessage],
     threadId: opts.threadId,
     toolId: opts.toolId,
   };
-  return streamGraphToUIMessageStream(opts.graph, input, opts.threadId);
+  return streamGraphToUIMessageStream(opts.graph, input, opts.threadId, opts.onFinish);
 }

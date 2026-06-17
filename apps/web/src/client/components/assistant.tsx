@@ -41,14 +41,22 @@ function ThreadCompletionDetector({ onComplete }: { onComplete: () => void }) {
 function AskUserInterceptor({ threadId, toolId }: { threadId: string; toolId: string }) {
   const messages = useAuiState((s) => s.thread.messages);
 
-  let pending: { question: string; options: string[]; toolCallId: string } | null = null;
+  // Only inspect the last assistant message — historical tool calls are already resolved.
+  let lastAssistant: (typeof messages)[number] | null = null;
   for (const m of messages) {
-    if (m.role !== "assistant") continue;
-    for (const part of m.content) {
+    if (m.role === "assistant") lastAssistant = m;
+  }
+
+  let pending: { question: string; options: string[]; toolCallId: string } | null = null;
+  if (lastAssistant) {
+    for (const part of lastAssistant.content) {
       if (
         part.type === "tool-call" &&
         part.toolName === "ask_user" &&
-        part.result === undefined
+        part.result === undefined &&
+        // Require the part to be actively running or awaiting action, not a completed call
+        // whose result hasn't been written back yet.
+        (part as any).status?.type !== "complete"
       ) {
         const args = part.args as { question?: string; options?: string[] };
         if (args.question && Array.isArray(args.options) && args.options.length >= 2) {

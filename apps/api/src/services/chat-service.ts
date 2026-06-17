@@ -23,7 +23,9 @@ function extractText(message: UIMessage): string {
     .join("");
 }
 
-function lastUserText(messages: UIMessage[]): string {
+// Exported for testing: spec §6 invariant — graph receives a single HumanMessage
+// containing only the text of the last user turn.
+export function lastUserText(messages: UIMessage[]): string {
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   return lastUser ? extractText(lastUser) : "";
 }
@@ -33,6 +35,7 @@ type Streamer = (opts: {
   userMessage: HumanMessage;
   threadId: string;
   toolId: string;
+  onFinish?: (text: string) => void | Promise<void>;
 }) => Promise<Response>;
 
 const GRAPH_FACTORIES: Record<string, (model: ReturnType<typeof getChatModel>) => ReturnType<typeof createJargonGraph>> = {
@@ -73,7 +76,25 @@ export async function streamChat(req: ChatRequest) {
   const streamer: Streamer = STREAMERS[toolId] ?? jargonStreamChat;
   const userMessage = new HumanMessage(lastUserText(req.messages));
 
-  const response = await streamer({ graph, userMessage, threadId: currentThreadId, toolId });
+  const response = await streamer({
+    graph,
+    userMessage,
+    threadId: currentThreadId,
+    toolId,
+    onFinish: async (text: string) => {
+      const assistantMessage: UIMessage = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        parts: [{ type: "text", text }],
+      };
+      insertMessage({
+        id: assistantMessage.id,
+        threadId: currentThreadId,
+        role: "assistant",
+        content: JSON.stringify(assistantMessage),
+      });
+    },
+  });
   touchThread(currentThreadId);
   return response;
 }
