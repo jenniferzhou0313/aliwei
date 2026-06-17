@@ -15,7 +15,7 @@ type ChatRequest = {
   system?: string;
   tools?: Record<string, { description?: string; parameters: unknown }>;
   threadId?: string;
-  agentId?: string;     // renamed from toolId
+  agentId?: string | null;     // renamed from toolId; null when no agent is active
   userId: string;
 };
 
@@ -142,7 +142,7 @@ export async function streamChat(req: ChatRequest) {
   if (!existingThread) {
     const firstUserMsg = req.messages.find((m) => m.role === "user");
     const title = firstUserMsg ? extractText(firstUserMsg).slice(0, 20) || "新对话" : "新对话";
-    createThread({ id: currentThreadId, userId: req.userId, title, agentId });
+    createThread({ id: currentThreadId, userId: req.userId, title, agentId: agentId === "start" ? null : agentId });
   }
 
   const model = getChatModel();

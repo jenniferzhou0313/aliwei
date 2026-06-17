@@ -207,26 +207,29 @@ export const Assistant: FC = () => {
   }, [refreshThreads]);
 
   const doAgentSwitch = useCallback(async (pending: PendingSwitch, currentThreadId: string) => {
-    // Fetch up-to-date messages (start agent conversation is now in DB).
-    const res = await apiFetch(`/threads/${currentThreadId}/messages`);
-    const msgs: UIMessage[] = res.ok ? await res.json() : [];
+    try {
+      // Fetch up-to-date messages (start agent conversation is now in DB).
+      const res = await apiFetch(`/threads/${currentThreadId}/messages`);
+      const msgs: UIMessage[] = res.ok ? await res.json() : [];
 
-    // Resolve the forwarded message: use the stored message, or fall back to last user message.
-    const forwardText = pending.message || getLastUserText(msgs);
+      // Resolve the forwarded message: use the stored message, or fall back to last user message.
+      const forwardText = pending.message || getLastUserText(msgs);
 
-    // Update thread agentId in DB so reloading this thread uses the right agent.
-    await apiFetch(`/threads/${currentThreadId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ agentId: pending.agent.id }),
-    });
+      // Update thread agentId in DB so reloading this thread uses the right agent.
+      await apiFetch(`/threads/${currentThreadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agentId: pending.agent.id }),
+      });
 
-    // Update state and force ChatView remount with the new agent + auto-send.
-    setThread({ id: currentThreadId, messages: msgs });
-    setActiveAgent(pending.agent);
-    setAutoSendText(forwardText);
-    setChatViewGeneration((n) => n + 1);
-    setPendingSwitch(null);
+      // Update state and force ChatView remount with the new agent + auto-send.
+      setThread({ id: currentThreadId, messages: msgs });
+      setActiveAgent(pending.agent);
+      setAutoSendText(forwardText);
+      setChatViewGeneration((n) => n + 1);
+    } finally {
+      setPendingSwitch(null);
+    }
   }, []);
 
   const handleThreadComplete = useCallback(
