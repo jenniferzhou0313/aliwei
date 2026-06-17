@@ -3,7 +3,7 @@ import type { CompiledStateGraph } from "@langchain/langgraph";
 import { HumanMessage } from "@langchain/core/messages";
 import { createBaseGraph } from "../base/graph";
 import { BaseState } from "../base/state";
-import { JARGON_SYSTEM_PROMPT, buildSystemPrompt } from "@aliwei/domain/prompts";
+import { JARGON_TOOL_PROMPT, buildSystemPrompt } from "../shared/prompts";
 import { streamGraphToUIMessageStream } from "../shared/stream-adapter";
 
 export function createJargonGraph(
@@ -12,7 +12,7 @@ export function createJargonGraph(
   return createBaseGraph({
     toolId: "jargon",
     stateAnnotation: BaseState,
-    systemPromptFn: () => buildSystemPrompt(JARGON_SYSTEM_PROMPT),
+    systemPromptFn: () => buildSystemPrompt(JARGON_TOOL_PROMPT),
     model,
   }) as any;
 }

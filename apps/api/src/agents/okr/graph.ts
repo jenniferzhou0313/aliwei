@@ -3,7 +3,7 @@ import type { CompiledStateGraph } from "@langchain/langgraph";
 import { HumanMessage } from "@langchain/core/messages";
 import { createBaseGraph } from "../base/graph";
 import { OkrState } from "../base/state";
-import { OKR_SYSTEM_PROMPT, buildSystemPrompt } from "@aliwei/domain/prompts";
+import { OKR_TOOL_PROMPT, buildSystemPrompt } from "../shared/prompts";
 import { streamGraphToUIMessageStream } from "../shared/stream-adapter";
 import { breakdownOkrTool, searchPastOkrsTool } from "./tools";
 
@@ -13,7 +13,7 @@ export function createOkrGraph(
   return createBaseGraph({
     toolId: "okr",
     stateAnnotation: OkrState as any,
-    systemPromptFn: () => buildSystemPrompt(OKR_SYSTEM_PROMPT),
+    systemPromptFn: () => buildSystemPrompt(OKR_TOOL_PROMPT),
     extraTools: [breakdownOkrTool, searchPastOkrsTool],
     model,
   }) as any;

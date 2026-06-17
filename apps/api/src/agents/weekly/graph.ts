@@ -3,7 +3,7 @@ import type { CompiledStateGraph } from "@langchain/langgraph";
 import { HumanMessage } from "@langchain/core/messages";
 import { createBaseGraph } from "../base/graph";
 import { BaseState } from "../base/state";
-import { WEEKLY_SYSTEM_PROMPT, buildSystemPrompt } from "@aliwei/domain/prompts";
+import { WEEKLY_TOOL_PROMPT, buildSystemPrompt } from "../shared/prompts";
 import { streamGraphToUIMessageStream } from "../shared/stream-adapter";
 import { collectWeeklyItemsTool } from "./tools";
 
@@ -13,7 +13,7 @@ export function createWeeklyGraph(
   return createBaseGraph({
     toolId: "weekly",
     stateAnnotation: BaseState,
-    systemPromptFn: () => buildSystemPrompt(WEEKLY_SYSTEM_PROMPT),
+    systemPromptFn: () => buildSystemPrompt(WEEKLY_TOOL_PROMPT),
     extraTools: [collectWeeklyItemsTool],
     model,
   }) as any;
