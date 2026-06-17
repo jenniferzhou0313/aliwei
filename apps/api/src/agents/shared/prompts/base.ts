@@ -1,4 +1,4 @@
-import { JARGON_DICT, formatDictForPrompt } from "../jargon-dict";
+import { JARGON_DICT, formatDictForPrompt } from "@aliwei/domain/jargon-dict";
 
 const DICT_TEXT = formatDictForPrompt(JARGON_DICT);
 

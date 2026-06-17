@@ -2,13 +2,11 @@
 
 import {
   AssistantRuntimeProvider,
-  useAssistantInstructions,
   useAuiState,
 } from "@assistant-ui/react";
 import { AssistantChatTransport, useChatRuntime } from "@assistant-ui/react-ai-sdk";
 import { lastAssistantMessageIsCompleteWithToolCalls, type UIMessage } from "ai";
 import { Thread } from "@aliwei/ui/assistant-ui/thread";
-import { AskUserToolUI } from "@aliwei/ui/assistant-ui/ask-user-tool";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@aliwei/ui/primitives/sidebar";
 import { Separator } from "@aliwei/ui/primitives/separator";
 import { cn } from "@aliwei/ui/cn";
@@ -21,16 +19,11 @@ import {
 } from "lucide-react";
 import type { Tool, ToolId, ThreadMeta } from "@aliwei/domain/types";
 import { TOOLS, findTool } from "@aliwei/domain/tools";
-import { ASK_USER_TOOL } from "@aliwei/domain/prompts";
 import { ThreadContext } from "@/client/contexts/thread-context";
 import { ThreadListSidebar } from "@/client/components/threadlist-sidebar";
+import { AskUserToolUI } from "@aliwei/ui/assistant-ui/ask-user-tool";
 import { apiFetch, apiUrl } from "@/client/lib/api";
 import { useCallback, useContext, useEffect, useRef, useState, type FC } from "react";
-
-function InstructionsInjector({ systemPrompt }: { systemPrompt: string }) {
-  useAssistantInstructions(systemPrompt);
-  return null;
-}
 
 function ThreadCompletionDetector({ onComplete }: { onComplete: () => void }) {
   const isRunning = useAuiState((s) => s.thread.isRunning);
@@ -125,7 +118,6 @@ function ChatView({ threadId, initialMessages, activeTool, onMessagesChanged }: 
       body: {
         threadId,
         toolId: activeTool?.id ?? null,
-        tools: ASK_USER_TOOL,
       },
     }),
   });
@@ -138,10 +130,9 @@ function ChatView({ threadId, initialMessages, activeTool, onMessagesChanged }: 
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <InstructionsInjector systemPrompt={activeTool?.systemPrompt ?? ""} />
       <ThreadCompletionDetector onComplete={stableOnMessagesChanged} />
-      <Thread components={{ Welcome: ToolWelcome, ComposerFooter: ToolButtons }} />
       <AskUserToolUI />
+      <Thread components={{ Welcome: ToolWelcome, ComposerFooter: ToolButtons }} />
     </AssistantRuntimeProvider>
   );
 }
