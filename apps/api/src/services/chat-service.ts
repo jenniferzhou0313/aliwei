@@ -7,6 +7,7 @@ import { createJargonGraph, jargonStreamChat } from "@/agents/jargon/graph";
 import { createWeeklyGraph, weeklyStreamChat } from "@/agents/weekly/graph";
 import { createOkrGraph, okrStreamChat } from "@/agents/okr/graph";
 import { createReviewGraph, reviewStreamChat } from "@/agents/review/graph";
+import { createStartGraph, startStreamChat } from "@/agents/start/graph";
 import { streamGraphToUIMessageStream } from "@/agents/shared/stream-adapter";
 
 type ChatRequest = {
@@ -72,6 +73,30 @@ export function detectAskUserResume(messages: UIMessage[]): string | null {
   return null;
 }
 
+export function detectSuggestAgentResume(messages: UIMessage[]): boolean | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role === "user") return null;
+    if (m.role !== "assistant") continue;
+    let suggestAnswer: boolean | null = null;
+    let consumed = false;
+    for (let j = 0; j < m.parts.length; j++) {
+      const p = m.parts[j] as { type?: string; state?: string; output?: unknown };
+      if (p.type === "tool-suggest_agent" && p.state === "output-available") {
+        const out = p.output as { confirmed?: boolean } | undefined;
+        if (typeof out?.confirmed === "boolean") {
+          suggestAnswer = out.confirmed;
+          consumed = false;
+        }
+      } else if (suggestAnswer !== null && isContentfulPart(p)) {
+        consumed = true;
+      }
+    }
+    return consumed ? null : suggestAnswer;
+  }
+  return null;
+}
+
 // True if a part contributes content the LLM may have generated AFTER
 // consuming an ask_user tool result. step-start is a structural marker
 // (not content) so it does not count.
@@ -97,16 +122,18 @@ const GRAPH_FACTORIES: Record<string, (model: ReturnType<typeof getChatModel>) =
   weekly: createWeeklyGraph,
   okr: createOkrGraph,
   review: createReviewGraph,
+  start: createStartGraph,
 };
 
 const STREAMERS: Record<string, Streamer> = {
   weekly: weeklyStreamChat,
   okr: okrStreamChat,
   review: reviewStreamChat,
+  start: startStreamChat,
 };
 
 export async function streamChat(req: ChatRequest) {
-  const agentId = req.agentId ?? "jargon";   // Task 6 will change this to "start"
+  const agentId = req.agentId ?? "start";
   const currentThreadId = req.threadId ?? crypto.randomUUID();
 
   const existingThread = req.threadId ? getThread(req.threadId) : null;
@@ -117,7 +144,7 @@ export async function streamChat(req: ChatRequest) {
   }
 
   const model = getChatModel();
-  const graph = (GRAPH_FACTORIES[agentId] ?? createJargonGraph)(model);
+  const graph = (GRAPH_FACTORIES[agentId] ?? createStartGraph)(model);
 
   const onFinish = async (text: string) => {
     const assistantMessage: UIMessage = {
@@ -133,13 +160,16 @@ export async function streamChat(req: ChatRequest) {
     });
   };
 
-  // Resume branch: user just answered an ask_user interrupt. Feed the
-  // selection back into the paused graph instead of starting a new turn.
+  // Resume branch: user just answered an ask_user or suggest_agent interrupt.
+  // Feed the answer back into the paused graph instead of starting a new turn.
   const resumeAnswer = detectAskUserResume(req.messages);
-  if (resumeAnswer !== null) {
+  const suggestAgentAnswer = detectSuggestAgentResume(req.messages);
+  const resumeValue: string | boolean | null = resumeAnswer ?? suggestAgentAnswer;
+
+  if (resumeValue !== null) {
     const response = await streamGraphToUIMessageStream(
       graph,
-      new Command({ resume: resumeAnswer }),
+      new Command({ resume: resumeValue }),
       currentThreadId,
       onFinish,
       { isResume: true },
@@ -158,7 +188,7 @@ export async function streamChat(req: ChatRequest) {
     });
   }
 
-  const streamer: Streamer = STREAMERS[agentId] ?? jargonStreamChat;
+  const streamer: Streamer = STREAMERS[agentId] ?? startStreamChat;
   const userMessage = new HumanMessage(lastUserText(req.messages));
 
   const response = await streamer({
