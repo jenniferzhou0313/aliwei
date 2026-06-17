@@ -1,25 +1,34 @@
 # apps/api/src/agents — LangGraph.js 落点
 
-后续接入 LangGraph 时,图定义放这里。当前是空目录。
+4 个 AI 助手的统一 agent 地基。所有对话都跑在 LangGraph.js state graph 上。
 
-## 计划用法
-
-当 `services/chat-service.ts` 的工具流需要从「单轮 streamText」升级为「多步 agent」时(例如:让 OKR 助手能调用工具拆解目标、让复盘助手能搜索历史复盘),把图定义放到这里:
+## 目录
 
 ```
 agents/
-├── okr-planner/
-│   ├── graph.ts       # createGraph()
-│   ├── nodes.ts       # 节点函数
-│   └── state.ts       # 状态 schema
-└── shared/
-    └── checkpointer.ts  # 可选:状态持久化
+├── base/                       # 共享地基
+│   ├── state.ts                # BaseState / OkrState / ReviewState
+│   ├── graph.ts                # createBaseGraph 工厂
+│   ├── nodes.ts                # shouldContinue + makeCallModelNode
+│   ├── model.ts                # getChatModel (OpenAI 兼容 / 阿里 Moark)
+│   └── checkpointer.ts         # SqliteSaver + WAL
+├── shared/
+│   ├── tools.ts                # askUserTool (带 interrupt)
+│   └── stream-adapter.ts       # langgraph events → UIMessageStream
+├── jargon/graph.ts
+├── weekly/graph.ts             # + collect_weekly_items tool
+├── okr/graph.ts                # + breakdown_okr + search_past_okrs
+└── review/graph.ts             # + search_past_reviews
 ```
 
-`services/chat-service.ts` 通过 `import { okrPlanner } from "@/agents/okr-planner"` 调用,把 `streamText` 换成 `graph.stream()` 即可。
+## 调用入口
 
-## 为什么不开独立 `packages/ai`
+`services/chat-service.ts` 根据 `toolId` 选择对应 graph factory，统一用 `streamGraphToUIMessageStream` 适配成 SSE。
 
-LangGraph 图是后端业务逻辑,前端不会 import 它(前端只通过 HTTP 看流式响应)。塞在 api 内部跟其他 services 同级最直接,不需要绕一层包。
+`routes/chat.ts` 的 `POST /continue` 端点接收用户对 `ask_user` 的回答，用 `Command({ resume })` 恢复被 interrupt 暂停的图。
 
-如果以后改用 Python LangGraph,本目录整体迁出去成为 `services/agent-py/`,api 改成 HTTP/WS 调它,前端零感知。
+## 状态管理
+
+- `state.messages` 由 LangGraph SqliteSaver 全权管理（单一来源）
+- `app messages` 表是前端展示投影，`streamChat` 调用前写入 user msg
+- `configurable.thread_id` = `threads.id`

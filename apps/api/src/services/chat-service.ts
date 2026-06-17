@@ -1,8 +1,6 @@
-import { frontendTools } from "@assistant-ui/react-ai-sdk";
-import { convertToModelMessages, streamText, type JSONSchema7, type UIMessage } from "ai";
+import type { UIMessage } from "ai";
 import { createThread, getThread, insertMessage, touchThread } from "@aliwei/db";
 import { HumanMessage } from "@langchain/core/messages";
-import { getLlmClient, getModelName } from "./llm-client";
 import { getChatModel } from "@/agents/base/model";
 import { createJargonGraph, jargonStreamChat } from "@/agents/jargon/graph";
 import { createWeeklyGraph, weeklyStreamChat } from "@/agents/weekly/graph";
@@ -12,20 +10,11 @@ import { createReviewGraph, reviewStreamChat } from "@/agents/review/graph";
 type ChatRequest = {
   messages: UIMessage[];
   system?: string;
-  tools?: Record<string, { description?: string; parameters: JSONSchema7 }>;
+  tools?: Record<string, { description?: string; parameters: unknown }>;
   threadId?: string;
   toolId?: string;
   userId: string;
 };
-
-function lastUserText(messages: UIMessage[]): string {
-  const lastUser = [...messages].reverse().find((m) => m.role === "user");
-  if (!lastUser) return "";
-  return lastUser.parts
-    .filter((p): p is { type: "text"; text: string } => p.type === "text")
-    .map((p) => p.text)
-    .join("");
-}
 
 function extractText(message: UIMessage): string {
   return message.parts
@@ -34,22 +23,39 @@ function extractText(message: UIMessage): string {
     .join("");
 }
 
+function lastUserText(messages: UIMessage[]): string {
+  const lastUser = [...messages].reverse().find((m) => m.role === "user");
+  return lastUser ? extractText(lastUser) : "";
+}
+
+type Streamer = (opts: {
+  graph: ReturnType<typeof createJargonGraph>;
+  userMessage: HumanMessage;
+  threadId: string;
+  toolId: string;
+}) => Promise<Response>;
+
+const GRAPH_FACTORIES: Record<string, (model: ReturnType<typeof getChatModel>) => ReturnType<typeof createJargonGraph>> = {
+  weekly: createWeeklyGraph,
+  okr: createOkrGraph,
+  review: createReviewGraph,
+};
+
+const STREAMERS: Record<string, Streamer> = {
+  weekly: weeklyStreamChat,
+  okr: okrStreamChat,
+  review: reviewStreamChat,
+};
+
 export async function streamChat(req: ChatRequest) {
-  const useLanggraph =
-    process.env.USE_LANGGRAPH === "true" &&
-    (req.toolId === "jargon" || req.toolId === "weekly" || req.toolId === "okr" || req.toolId === "review");
+  const toolId = req.toolId ?? "jargon";
   const currentThreadId = req.threadId ?? crypto.randomUUID();
 
   const existingThread = req.threadId ? getThread(req.threadId) : null;
   if (!existingThread) {
     const firstUserMsg = req.messages.find((m) => m.role === "user");
     const title = firstUserMsg ? extractText(firstUserMsg).slice(0, 20) || "新对话" : "新对话";
-    createThread({
-      id: currentThreadId,
-      userId: req.userId,
-      title,
-      toolId: req.toolId,
-    });
+    createThread({ id: currentThreadId, userId: req.userId, title, toolId });
   }
 
   const lastUserMessage = [...req.messages].reverse().find((m) => m.role === "user");
@@ -62,55 +68,12 @@ export async function streamChat(req: ChatRequest) {
     });
   }
 
-  if (useLanggraph) {
-    const text = lastUserText(req.messages);
-    const userMsg = new HumanMessage(text);
-    const model = getChatModel();
-    const toolId = req.toolId!;
-    let graph: any;
-    let streamer: (opts: { graph: any; userMessage: HumanMessage; threadId: string; toolId: string }) => Promise<Response>;
-    if (toolId === "weekly") {
-      graph = createWeeklyGraph(model);
-      streamer = weeklyStreamChat;
-    } else if (toolId === "okr") {
-      graph = createOkrGraph(model);
-      streamer = okrStreamChat;
-    } else if (toolId === "review") {
-      graph = createReviewGraph(model);
-      streamer = reviewStreamChat;
-    } else {
-      graph = createJargonGraph(model);
-      streamer = jargonStreamChat;
-    }
-    const response = await streamer({ graph, userMessage: userMsg, threadId: currentThreadId, toolId });
-    touchThread(currentThreadId);
-    return response;
-  }
+  const model = getChatModel();
+  const graph = (GRAPH_FACTORIES[toolId] ?? createJargonGraph)(model);
+  const streamer: Streamer = STREAMERS[toolId] ?? jargonStreamChat;
+  const userMessage = new HumanMessage(lastUserText(req.messages));
 
-  const result = streamText({
-    // .chat() forces /v1/chat/completions; default routes to /v1/responses,
-    // which Aliyun/Moark-compatible endpoints do not implement.
-    model: getLlmClient().chat(getModelName()),
-    messages: await convertToModelMessages(req.messages),
-    system: req.system,
-    tools: {
-      ...frontendTools(req.tools ?? {}),
-    },
-    onFinish: ({ text }) => {
-      const assistantMessage: UIMessage = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        parts: [{ type: "text", text }],
-      };
-      insertMessage({
-        id: assistantMessage.id,
-        threadId: currentThreadId,
-        role: "assistant",
-        content: JSON.stringify(assistantMessage),
-      });
-      touchThread(currentThreadId);
-    },
-  });
-
-  return result.toUIMessageStreamResponse();
+  const response = await streamer({ graph, userMessage, threadId: currentThreadId, toolId });
+  touchThread(currentThreadId);
+  return response;
 }

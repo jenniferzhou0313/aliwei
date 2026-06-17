@@ -4,14 +4,13 @@ import { resetCheckpointer } from "@/agents/base/checkpointer";
 import { streamChat } from "../chat-service";
 import type { UIMessage } from "ai";
 
-describe("streamChat with USE_LANGGRAPH", () => {
+describe("streamChat", () => {
   beforeEach(() => {
     // Use unique DB per test invocation to avoid concurrent write collisions
     process.env.CHECKPOINTER_DB_PATH = `/tmp/aliwei-chat-${Date.now()}.db`;
     process.env.ALIBABA_BASE_URL = "http://localhost:9999";
     process.env.ALIBABA_API_KEY = "test-key";
     process.env.MODEL_NAME = "qwen-test";
-    process.env.USE_LANGGRAPH = "true";
     resetChatModel();
     resetCheckpointer();
   });
