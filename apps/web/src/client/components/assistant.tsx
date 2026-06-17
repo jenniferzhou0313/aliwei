@@ -2,7 +2,6 @@
 
 import {
   AssistantRuntimeProvider,
-  useAssistantInstructions,
   useAssistantToolUI,
   useAuiState,
 } from "@assistant-ui/react";
@@ -19,11 +18,6 @@ import { ThreadListSidebar } from "@/client/components/threadlist-sidebar";
 import { AskUserCard } from "@/client/components/ask-user-card";
 import { apiFetch, apiUrl } from "@/client/lib/api";
 import { useCallback, useContext, useEffect, useRef, useState, type FC } from "react";
-
-function InstructionsInjector({ systemPrompt }: { systemPrompt: string }) {
-  useAssistantInstructions(systemPrompt);
-  return null;
-}
 
 function ThreadCompletionDetector({ onComplete }: { onComplete: () => void }) {
   const isRunning = useAuiState((s) => s.thread.isRunning);
@@ -141,7 +135,6 @@ function ChatView({ threadId, initialMessages, activeTool, onMessagesChanged }: 
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <InstructionsInjector systemPrompt={activeTool?.systemPrompt ?? ""} />
       <ThreadCompletionDetector onComplete={stableOnMessagesChanged} />
       <AskUserToolUIRegistrar />
       <Thread components={{ Welcome: ToolWelcome, ComposerFooter: ToolButtons }} />
