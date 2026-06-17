@@ -17,8 +17,8 @@ import {
   TargetIcon,
   type LucideIcon,
 } from "lucide-react";
-import type { Tool, ToolId, ThreadMeta } from "@aliwei/domain/types";
-import { TOOLS, findTool } from "@aliwei/domain/tools";
+import type { Agent, AgentId, ThreadMeta } from "@aliwei/domain/types";
+import { AGENTS, findAgent } from "@aliwei/domain/agents";
 import { ThreadContext } from "@/client/contexts/thread-context";
 import { ThreadListSidebar } from "@/client/components/threadlist-sidebar";
 import { AskUserToolUI } from "@aliwei/ui/assistant-ui/ask-user-tool";
@@ -39,17 +39,18 @@ function ThreadCompletionDetector({ onComplete }: { onComplete: () => void }) {
   return null;
 }
 
-const TOOL_ICONS: Record<ToolId, LucideIcon> = {
+const AGENT_ICONS: Record<AgentId, LucideIcon> = {
   jargon: LanguagesIcon,
   weekly: NotebookPenIcon,
   okr: TargetIcon,
   review: FileSearchIcon,
+  start: LanguagesIcon,   // start never renders an icon in the toolbar, placeholder only
 };
 
-const ToolWelcome: FC = () => {
-  const { activeTool } = useContext(ThreadContext);
+const AgentWelcome: FC = () => {
+  const { activeAgent } = useContext(ThreadContext);
 
-  if (!activeTool) {
+  if (!activeAgent) {
     return (
       <div className="flex flex-col items-center gap-2 px-4 text-center">
         <h1 className="text-3xl font-semibold tracking-normal">阿里职场 AI 助手</h1>
@@ -61,40 +62,40 @@ const ToolWelcome: FC = () => {
   return (
     <div className="flex max-w-xl flex-col items-center gap-3 px-4 text-center">
       {(() => {
-        const Icon = TOOL_ICONS[activeTool.id];
+        const Icon = AGENT_ICONS[activeAgent.id];
         return <Icon aria-hidden="true" className="h-12 w-12 shrink-0" />;
       })()}
-      <h2 className="text-xl font-semibold">{activeTool.label}</h2>
+      <h2 className="text-xl font-semibold">{activeAgent.label}</h2>
       <p className="text-muted-foreground whitespace-pre-line text-sm leading-relaxed">
-        {activeTool.starter}
+        {activeAgent.starter}
       </p>
     </div>
   );
 };
 
-function ToolButtons() {
-  const { activeTool, newThread } = useContext(ThreadContext);
+function AgentButtons() {
+  const { activeAgent, newThread } = useContext(ThreadContext);
 
   return (
     <div className="mx-auto grid w-full max-w-[44rem] grid-cols-2 gap-2 px-1 sm:grid-cols-4">
-      {TOOLS.map((tool) => (
+      {AGENTS.map((agent) => (
         <button
-          key={tool.id}
+          key={agent.id}
           type="button"
-          onClick={() => newThread(tool)}
+          onClick={() => newThread(agent)}
           className={cn(
             "flex min-h-11 items-center justify-center gap-2 rounded-xl border px-3 py-2.5",
             "text-center text-sm font-medium transition-colors",
-            activeTool?.id === tool.id
+            activeAgent?.id === agent.id
               ? "border-primary bg-primary/10 text-primary"
               : "border-border/70 bg-card/70 text-card-foreground hover:bg-accent hover:text-accent-foreground",
           )}
         >
           {(() => {
-            const Icon = TOOL_ICONS[tool.id];
+            const Icon = AGENT_ICONS[agent.id];
             return <Icon aria-hidden="true" className="h-6 w-6 shrink-0" />;
           })()}
-          <span>{tool.label}</span>
+          <span>{agent.label}</span>
         </button>
       ))}
     </div>
@@ -104,11 +105,11 @@ function ToolButtons() {
 type ChatViewProps = {
   threadId: string;
   initialMessages: UIMessage[];
-  activeTool: Tool | null;
+  activeAgent: Agent | null;
   onMessagesChanged: () => void;
 };
 
-function ChatView({ threadId, initialMessages, activeTool, onMessagesChanged }: ChatViewProps) {
+function ChatView({ threadId, initialMessages, activeAgent, onMessagesChanged }: ChatViewProps) {
   const runtime = useChatRuntime({
     messages: initialMessages,
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
@@ -117,7 +118,7 @@ function ChatView({ threadId, initialMessages, activeTool, onMessagesChanged }: 
       credentials: "include",
       body: {
         threadId,
-        toolId: activeTool?.id ?? null,
+        agentId: activeAgent?.id ?? null,
       },
     }),
   });
@@ -132,7 +133,7 @@ function ChatView({ threadId, initialMessages, activeTool, onMessagesChanged }: 
     <AssistantRuntimeProvider runtime={runtime}>
       <ThreadCompletionDetector onComplete={stableOnMessagesChanged} />
       <AskUserToolUI />
-      <Thread components={{ Welcome: ToolWelcome, ComposerFooter: ToolButtons }} />
+      <Thread components={{ Welcome: AgentWelcome, ComposerFooter: AgentButtons }} />
     </AssistantRuntimeProvider>
   );
 }
@@ -147,7 +148,7 @@ export const Assistant: FC = () => {
     id: crypto.randomUUID(),
     messages: [],
   }));
-  const [activeTool, setActiveTool] = useState<Tool | null>(null);
+  const [activeAgent, setActiveAgent] = useState<Agent | null>(null);
   const [threads, setThreads] = useState<ThreadMeta[]>([]);
 
   const refreshThreads = useCallback(async () => {
@@ -163,9 +164,9 @@ export const Assistant: FC = () => {
     refreshThreads();
   }, [refreshThreads]);
 
-  const newThread = useCallback((tool?: Tool) => {
+  const newThread = useCallback((agent?: Agent) => {
     setThread({ id: crypto.randomUUID(), messages: [] });
-    setActiveTool(tool ?? null);
+    setActiveAgent(agent ?? null);
   }, []);
 
   const switchToThread = useCallback(
@@ -175,7 +176,7 @@ export const Assistant: FC = () => {
       setThread({ id: threadId, messages: msgs });
 
       const meta = threads.find((t) => t.id === threadId);
-      setActiveTool(findTool(meta?.toolId));
+      setActiveAgent(findAgent(meta?.agentId));
     },
     [threads],
   );
@@ -189,13 +190,18 @@ export const Assistant: FC = () => {
     [thread.id, newThread, refreshThreads],
   );
 
+  const requestAgentSwitch = useCallback(() => {
+    // Implemented in Task 7
+  }, []);
+
   const contextValue = {
     threads,
     activeThreadId: thread.id,
-    activeTool,
+    activeAgent,
     newThread,
     switchToThread,
     deleteThread,
+    requestAgentSwitch,
   };
 
   return (
@@ -215,7 +221,7 @@ export const Assistant: FC = () => {
                   key={thread.id}
                   threadId={thread.id}
                   initialMessages={thread.messages}
-                  activeTool={activeTool}
+                  activeAgent={activeAgent}
                   onMessagesChanged={refreshThreads}
                 />
               </div>
