@@ -10,7 +10,14 @@ import { Thread } from "@aliwei/ui/assistant-ui/thread";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@aliwei/ui/primitives/sidebar";
 import { Separator } from "@aliwei/ui/primitives/separator";
 import { cn } from "@aliwei/ui/cn";
-import type { Tool, ThreadMeta } from "@aliwei/domain/types";
+import {
+  FileSearchIcon,
+  LanguagesIcon,
+  NotebookPenIcon,
+  TargetIcon,
+  type LucideIcon,
+} from "lucide-react";
+import type { Tool, ToolId, ThreadMeta } from "@aliwei/domain/types";
 import { TOOLS, findTool } from "@aliwei/domain/tools";
 import { ThreadContext } from "@/client/contexts/thread-context";
 import { ThreadListSidebar } from "@/client/components/threadlist-sidebar";
@@ -32,6 +39,12 @@ function ThreadCompletionDetector({ onComplete }: { onComplete: () => void }) {
   return null;
 }
 
+const TOOL_ICONS: Record<ToolId, LucideIcon> = {
+  jargon: LanguagesIcon,
+  weekly: NotebookPenIcon,
+  okr: TargetIcon,
+  review: FileSearchIcon,
+};
 
 const ToolWelcome: FC = () => {
   const { activeTool } = useContext(ThreadContext);
@@ -39,19 +52,18 @@ const ToolWelcome: FC = () => {
   if (!activeTool) {
     return (
       <div className="flex flex-col items-center gap-2 px-4 text-center">
-        <h1 className="text-3xl font-semibold tracking-normal">
-          阿里职场 AI 助手
-        </h1>
-        <p className="text-muted-foreground text-sm">
-          周报、OKR、复盘、黑话翻译，一个对话搞定
-        </p>
+        <h1 className="text-3xl font-semibold tracking-normal">阿里职场 AI 助手</h1>
+        <p className="text-muted-foreground text-sm">周报、OKR、复盘、黑话翻译，一个对话搞定</p>
       </div>
     );
   }
 
   return (
     <div className="flex max-w-xl flex-col items-center gap-3 px-4 text-center">
-      <div className="text-4xl">{activeTool.icon}</div>
+      {(() => {
+        const Icon = TOOL_ICONS[activeTool.id];
+        return <Icon aria-hidden="true" className="h-12 w-12 shrink-0" />;
+      })()}
       <h2 className="text-xl font-semibold">{activeTool.label}</h2>
       <p className="text-muted-foreground whitespace-pre-line text-sm leading-relaxed">
         {activeTool.starter}
@@ -78,7 +90,10 @@ function ToolButtons() {
               : "border-border/70 bg-card/70 text-card-foreground hover:bg-accent hover:text-accent-foreground",
           )}
         >
-          <span className="text-lg">{tool.icon}</span>
+          {(() => {
+            const Icon = TOOL_ICONS[tool.id];
+            return <Icon aria-hidden="true" className="h-6 w-6 shrink-0" />;
+          })()}
           <span>{tool.label}</span>
         </button>
       ))}

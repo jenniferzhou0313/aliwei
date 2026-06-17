@@ -2,7 +2,6 @@ export type ToolId = "jargon" | "weekly" | "okr" | "review";
 
 export type Tool = {
   id: ToolId;
-  icon: string;
   label: string;
   starter: string;
 };
