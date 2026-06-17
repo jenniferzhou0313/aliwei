@@ -6,17 +6,16 @@ import {
   useAuiState,
 } from "@assistant-ui/react";
 import { AssistantChatTransport, useChatRuntime } from "@assistant-ui/react-ai-sdk";
-import { lastAssistantMessageIsCompleteWithToolCalls, type UIMessage } from "ai";
+import type { UIMessage } from "ai";
 import { Thread } from "@aliwei/ui/assistant-ui/thread";
-import { AskUserToolUI } from "@aliwei/ui/assistant-ui/ask-user-tool";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@aliwei/ui/primitives/sidebar";
 import { Separator } from "@aliwei/ui/primitives/separator";
 import { cn } from "@aliwei/ui/cn";
 import type { Tool, ThreadMeta } from "@aliwei/domain/types";
 import { TOOLS, findTool } from "@aliwei/domain/tools";
-import { ASK_USER_TOOL } from "@aliwei/domain/prompts";
 import { ThreadContext } from "@/client/contexts/thread-context";
 import { ThreadListSidebar } from "@/client/components/threadlist-sidebar";
+import { AskUserCard } from "@/client/components/ask-user-card";
 import { apiFetch, apiUrl } from "@/client/lib/api";
 import { useCallback, useContext, useEffect, useRef, useState, type FC } from "react";
 
@@ -37,6 +36,44 @@ function ThreadCompletionDetector({ onComplete }: { onComplete: () => void }) {
   }, [isRunning, onComplete]);
 
   return null;
+}
+
+function AskUserInterceptor({ threadId, toolId }: { threadId: string; toolId: string }) {
+  const messages = useAuiState((s) => s.thread.messages);
+
+  let pending: { question: string; options: string[]; toolCallId: string } | null = null;
+  for (const m of messages) {
+    if (m.role !== "assistant") continue;
+    for (const part of m.content) {
+      if (
+        part.type === "tool-call" &&
+        part.toolName === "ask_user" &&
+        part.result === undefined
+      ) {
+        const args = part.args as { question?: string; options?: string[] };
+        if (args.question && Array.isArray(args.options) && args.options.length >= 2) {
+          pending = {
+            question: args.question,
+            options: args.options,
+            toolCallId: part.toolCallId,
+          };
+        }
+      }
+    }
+  }
+
+  if (!pending) return null;
+
+  return (
+    <AskUserCard
+      question={pending.question}
+      options={pending.options}
+      threadId={threadId}
+      toolCallId={pending.toolCallId}
+      toolId={toolId}
+      onSelect={() => {}}
+    />
+  );
 }
 
 const ToolWelcome: FC = () => {
@@ -102,14 +139,12 @@ type ChatViewProps = {
 function ChatView({ threadId, initialMessages, activeTool, onMessagesChanged }: ChatViewProps) {
   const runtime = useChatRuntime({
     messages: initialMessages,
-    sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
     transport: new AssistantChatTransport({
       api: apiUrl("/chat"),
       credentials: "include",
       body: {
         threadId,
         toolId: activeTool?.id ?? null,
-        tools: ASK_USER_TOOL,
       },
     }),
   });
@@ -125,7 +160,7 @@ function ChatView({ threadId, initialMessages, activeTool, onMessagesChanged }: 
       <InstructionsInjector systemPrompt={activeTool?.systemPrompt ?? ""} />
       <ThreadCompletionDetector onComplete={stableOnMessagesChanged} />
       <Thread components={{ Welcome: ToolWelcome, ComposerFooter: ToolButtons }} />
-      <AskUserToolUI />
+      <AskUserInterceptor threadId={threadId} toolId={activeTool?.id ?? ""} />
     </AssistantRuntimeProvider>
   );
 }
