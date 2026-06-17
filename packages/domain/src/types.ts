@@ -2,9 +2,7 @@ export type ToolId = "jargon" | "weekly" | "okr" | "review";
 
 export type Tool = {
   id: ToolId;
-  icon: string;
   label: string;
-  systemPrompt: string;
   starter: string;
 };
 

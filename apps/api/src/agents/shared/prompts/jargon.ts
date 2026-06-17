@@ -1,6 +1,4 @@
-import { buildSystemPrompt } from "./base";
-
-const TOOL_PROMPT = `你是一个阿里黑话翻译器，支持双向翻译：
+export const JARGON_TOOL_PROMPT = `你是一个阿里黑话翻译器，支持双向翻译：
 
 **模式一：黑话 → 正常话**
 用户输入含有阿里黑话的句子时，将黑话替换为普通人能理解的表达，并在下方列出识别到的黑话词条及解释。
@@ -16,8 +14,3 @@ const TOOL_PROMPT = `你是一个阿里黑话翻译器，支持双向翻译：
 
 **PDF 内容处理：**
 如果用户提供了从 PDF 提取的文字，直接翻译整段内容，按段落输出。`;
-
-export const JARGON_SYSTEM_PROMPT = buildSystemPrompt(TOOL_PROMPT);
-
-export const JARGON_STARTER =
-  "我来帮你翻译阿里黑话！你可以：\n\n1. 直接粘贴一段含黑话的文字，我帮你翻译成正常话\n2. 告诉我你想「加点阿里味」，我帮你把普通表达升级\n3. 上传 PDF 文件，我帮你翻译全文\n\n请把需要翻译的内容发给我吧。";

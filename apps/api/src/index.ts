@@ -5,6 +5,7 @@ import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { guestIdMiddleware } from "@/middleware/guest-id";
 import chat from "@/routes/chat";
+import chatDebug from "@/routes/chat-debug";
 import threads from "@/routes/threads";
 import parsePdf from "@/routes/parse-pdf";
 
@@ -28,6 +29,7 @@ app.use("*", guestIdMiddleware);
 app.get("/health", (c) => c.json({ ok: true }));
 
 app.route("/chat", chat);
+app.route("/chat/debug", chatDebug);
 app.route("/threads", threads);
 app.route("/parse-pdf", parsePdf);
 
