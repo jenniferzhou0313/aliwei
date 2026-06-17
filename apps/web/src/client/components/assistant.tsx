@@ -2,8 +2,8 @@
 
 import {
   AssistantRuntimeProvider,
+  useAui,
   useAuiState,
-  useThreadRuntime,
 } from "@assistant-ui/react";
 import { AssistantChatTransport, useChatRuntime } from "@assistant-ui/react-ai-sdk";
 import { lastAssistantMessageIsCompleteWithToolCalls, type UIMessage } from "ai";
@@ -39,12 +39,12 @@ function getLastUserText(messages: UIMessage[]): string {
 
 // Auto-sends a message on mount (used after agent switch to forward the original message).
 function AutoSender({ text }: { text: string }) {
-  const threadRuntime = useThreadRuntime();
+  const aui = useAui();
   const sentRef = useRef(false);
   useEffect(() => {
     if (sentRef.current || !text) return;
     sentRef.current = true;
-    threadRuntime.append({ role: "user", content: [{ type: "text", text }], startRun: true });
+    aui.thread().append({ role: "user", content: [{ type: "text", text }], startRun: true });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // fire once on mount
   return null;
