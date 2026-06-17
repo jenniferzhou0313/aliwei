@@ -12,7 +12,14 @@ import { AskUserToolUI } from "@aliwei/ui/assistant-ui/ask-user-tool";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@aliwei/ui/primitives/sidebar";
 import { Separator } from "@aliwei/ui/primitives/separator";
 import { cn } from "@aliwei/ui/cn";
-import type { Tool, ThreadMeta } from "@aliwei/domain/types";
+import {
+  FileSearchIcon,
+  LanguagesIcon,
+  NotebookPenIcon,
+  TargetIcon,
+  type LucideIcon,
+} from "lucide-react";
+import type { Tool, ToolId, ThreadMeta } from "@aliwei/domain/types";
 import { TOOLS, findTool } from "@aliwei/domain/tools";
 import { ASK_USER_TOOL } from "@aliwei/domain/prompts";
 import { ThreadContext } from "@/client/contexts/thread-context";
@@ -39,6 +46,13 @@ function ThreadCompletionDetector({ onComplete }: { onComplete: () => void }) {
   return null;
 }
 
+const TOOL_ICONS: Record<ToolId, LucideIcon> = {
+  jargon: LanguagesIcon,
+  weekly: NotebookPenIcon,
+  okr: TargetIcon,
+  review: FileSearchIcon,
+};
+
 const ToolWelcome: FC = () => {
   const { activeTool } = useContext(ThreadContext);
 
@@ -53,7 +67,10 @@ const ToolWelcome: FC = () => {
 
   return (
     <div className="flex max-w-xl flex-col items-center gap-3 px-4 text-center">
-      <img src={activeTool.icon} alt="" aria-hidden="true" className="h-12 w-12 object-contain" />
+      {(() => {
+        const Icon = TOOL_ICONS[activeTool.id];
+        return <Icon aria-hidden="true" className="h-12 w-12 shrink-0" />;
+      })()}
       <h2 className="text-xl font-semibold">{activeTool.label}</h2>
       <p className="text-muted-foreground whitespace-pre-line text-sm leading-relaxed">
         {activeTool.starter}
@@ -80,12 +97,10 @@ function ToolButtons() {
               : "border-border/70 bg-card/70 text-card-foreground hover:bg-accent hover:text-accent-foreground",
           )}
         >
-          <img
-            src={tool.icon}
-            alt=""
-            aria-hidden="true"
-            className="h-6 w-6 shrink-0 object-contain"
-          />
+          {(() => {
+            const Icon = TOOL_ICONS[tool.id];
+            return <Icon aria-hidden="true" className="h-6 w-6 shrink-0" />;
+          })()}
           <span>{tool.label}</span>
         </button>
       ))}
