@@ -13,28 +13,28 @@ import {
 export const TOOLS: Tool[] = [
   {
     id: "jargon",
-    icon: "🔤",
+    icon: "/icons/jargon.svg",
     label: "黑话翻译器",
     systemPrompt: JARGON_SYSTEM_PROMPT,
     starter: JARGON_STARTER,
   },
   {
     id: "weekly",
-    icon: "📋",
+    icon: "/icons/weekly.svg",
     label: "周报助手",
     systemPrompt: WEEKLY_SYSTEM_PROMPT,
     starter: WEEKLY_STARTER,
   },
   {
     id: "okr",
-    icon: "🎯",
+    icon: "/icons/okr.svg",
     label: "OKR 助手",
     systemPrompt: OKR_SYSTEM_PROMPT,
     starter: OKR_STARTER,
   },
   {
     id: "review",
-    icon: "🔍",
+    icon: "/icons/review.svg",
     label: "复盘助手",
     systemPrompt: REVIEW_SYSTEM_PROMPT,
     starter: REVIEW_STARTER,
