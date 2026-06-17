@@ -312,6 +312,139 @@ describe("streamGraphToUIMessageStream", () => {
     expect(chunks.filter((c) => c.type === "finish-step")).toHaveLength(1);
   });
 
+  it("suppresses re-wrapped error whose message contains the GraphInterrupt stack trace (no red box)", async () => {
+    // LangChain's tool machinery sometimes re-wraps the GraphInterrupt into a
+    // new Error whose .message is the original error's stack string:
+    // "[JSON]\n\nGraphInterrupt: [JSON]\n    at interrupt..."
+    // JSON.parse fails on that, so keyword matching must catch it.
+    const interruptJson = JSON.stringify([
+      { id: "xyz", value: { question: "choose", options: ["A", "B"] } },
+    ], null, 2);
+    const stackLikeMessage = `${interruptJson}\n\nGraphInterrupt: ${interruptJson}\n    at interrupt (langgraph/dist/interrupt.js:70:9)`;
+    const rewrappedError = new Error(stackLikeMessage);
+    rewrappedError.name = "Error"; // NOT "GraphInterrupt"
+
+    async function* fakeStreamEvents() {
+      yield {
+        event: "on_chat_model_start",
+        data: {},
+        name: "ChatModel",
+        run_id: "m-rewrap",
+        tags: [],
+        metadata: {},
+      };
+      yield {
+        event: "on_tool_start",
+        data: { input: { question: "choose", options: ["A", "B"] } },
+        name: "ask_user",
+        run_id: "run-rewrap",
+        tags: [],
+        metadata: {},
+      };
+      throw rewrappedError;
+    }
+
+    const mockGraph = { streamEvents: () => fakeStreamEvents() } as any;
+    const res = await streamGraphToUIMessageStream(mockGraph, {} as any, "t-rewrap");
+    const chunks = await readChunks(res);
+
+    expect(chunks.some((c) => c.type === "error")).toBe(false);
+  });
+
+  it("suppresses Error-wrapped GraphInterrupt thrown by streamEvents (no red box)", async () => {
+    // Some langgraph versions wrap the interrupt JSON in a plain Error object
+    // (new Error(jsonString)) rather than throwing the string directly or a
+    // proper GraphInterrupt. This must also be suppressed so it doesn't appear
+    // as a red error box in the UI.
+    const interruptString = JSON.stringify([
+      { id: "def", value: { question: "prefer tea or coffee?", options: ["tea", "coffee"] } },
+    ]);
+    const wrappedError = new Error(interruptString);
+
+    async function* fakeStreamEvents() {
+      yield {
+        event: "on_chat_model_start",
+        data: {},
+        name: "ChatModel",
+        run_id: "m-err-wrap",
+        tags: [],
+        metadata: {},
+      };
+      yield {
+        event: "on_tool_start",
+        data: { input: { question: "prefer tea or coffee?", options: ["tea", "coffee"] } },
+        name: "ask_user",
+        run_id: "run-err-wrap",
+        tags: [],
+        metadata: {},
+      };
+      yield {
+        event: "on_tool_error",
+        data: { error: wrappedError },
+        name: "ask_user",
+        run_id: "run-err-wrap",
+        tags: [],
+        metadata: {},
+      };
+      throw wrappedError;
+    }
+
+    const mockGraph = { streamEvents: () => fakeStreamEvents() } as any;
+    const res = await streamGraphToUIMessageStream(mockGraph, {} as any, "t-err-wrap");
+    const chunks = await readChunks(res);
+
+    expect(chunks.some((c) => c.type === "error")).toBe(false);
+    const inputAvail = chunks.find(
+      (c) => c.type === "tool-input-available" && (c as any).toolName === "ask_user",
+    ) as any;
+    expect(inputAvail).toBeDefined();
+    expect(inputAvail.input).toEqual({ question: "prefer tea or coffee?", options: ["tea", "coffee"] });
+  });
+
+  it("suppresses stringified GraphInterrupt thrown after on_tool_error (no red box)", async () => {
+    // Some LangGraph versions yield on_tool_error (correctly handled) AND
+    // then also throw the interrupt as a raw JSON string "[{id,value}]" at
+    // the end of streamEvents. The string must not reach onError — if it did,
+    // the AI SDK renders it as a red border-destructive error message in the UI.
+    const interruptString = JSON.stringify([
+      { id: "abc", value: { question: "详细还是简略?", options: ["详细", "简略"] } },
+    ]);
+
+    async function* fakeStreamEvents() {
+      yield {
+        event: "on_chat_model_start",
+        data: {},
+        name: "ChatModel",
+        run_id: "m-str-int",
+        tags: [],
+        metadata: {},
+      };
+      yield {
+        event: "on_tool_error",
+        data: { error: interruptString },
+        name: "ask_user",
+        run_id: "run-str-1",
+        tags: [],
+        metadata: {},
+      };
+      throw interruptString;
+    }
+
+    const mockGraph = { streamEvents: () => fakeStreamEvents() } as any;
+    const res = await streamGraphToUIMessageStream(mockGraph, {} as any, "t-str-int");
+    const chunks = await readChunks(res);
+
+    // No error chunk should appear — the string interrupt must be suppressed.
+    expect(chunks.some((c) => c.type === "error")).toBe(false);
+
+    // The interrupt value must have been extracted and sent as tool-input-available.
+    const inputAvail = chunks.find(
+      (c) => c.type === "tool-input-available" && (c as any).toolName === "ask_user",
+    ) as any;
+    expect(inputAvail).toBeDefined();
+    expect(inputAvail.input).toEqual({ question: "详细还是简略?", options: ["详细", "简略"] });
+  });
+
   it("falls back to on_chat_model_end text when provider doesn't stream", async () => {
     // Qwen / Aliyun can return the full response in one shot without
     // on_chat_model_stream chunks. We need to still surface the text.

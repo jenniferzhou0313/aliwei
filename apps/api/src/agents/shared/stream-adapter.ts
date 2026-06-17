@@ -38,12 +38,36 @@ function unwrapToolInput(raw: unknown): unknown {
 // adapter's defensive catches — false positives are cheap (we silently
 // swallow), false negatives leak the interrupt JSON into the UI as a red
 // error.
+function isInterruptJsonArray(s: string): boolean {
+  try {
+    const parsed = JSON.parse(s);
+    return Array.isArray(parsed) && parsed.length > 0 && "value" in parsed[0];
+  } catch {
+    return false;
+  }
+}
+
+const INTERRUPT_NAME_RE = /\bGraphInterrupt\b|\bNodeInterrupt\b/;
+
 function looksLikeGraphInterrupt(err: unknown): boolean {
   if (isGraphInterrupt(err)) return true;
+  if (typeof err === "string") {
+    // Raw JSON-serialised interrupts array "[{ id, value }]"
+    if (isInterruptJsonArray(err)) return true;
+    // Full stack-trace string "...\nGraphInterrupt: [...]\n    at ..."
+    return INTERRUPT_NAME_RE.test(err);
+  }
   if (!err || typeof err !== "object") return false;
   const anyErr = err as Record<string, unknown>;
   if (anyErr.name === "GraphInterrupt" || anyErr.name === "NodeInterrupt") return true;
   if (Array.isArray(anyErr.interrupts)) return true;
+  // Wrapped error whose .message is the JSON array or a stack-trace string
+  // containing "GraphInterrupt" (e.g. LangChain tool wrapper sets
+  // message = originalError.message + "\n\n" + originalError.stack).
+  if (typeof anyErr.message === "string") {
+    if (isInterruptJsonArray(anyErr.message)) return true;
+    if (INTERRUPT_NAME_RE.test(anyErr.message)) return true;
+  }
   return false;
 }
 
@@ -51,28 +75,26 @@ function looksLikeGraphInterrupt(err: unknown): boolean {
 // whose data.error is a GraphInterrupt with an interrupts array (or a
 // stringified version). Pull out the first interrupt's value, which is
 // what we want to display to the user.
+function extractInterruptJsonValue(s: string): unknown | null {
+  try {
+    const arr = JSON.parse(s);
+    if (Array.isArray(arr) && arr.length > 0) return arr[0]?.value ?? null;
+  } catch {
+    // not valid JSON
+  }
+  return null;
+}
+
 function extractInterruptValue(err: unknown): unknown | null {
   if (!err) return null;
   if (isGraphInterrupt(err)) {
     const first = (err as any).interrupts?.[0];
     return first?.value ?? null;
   }
-  // Some langgraph versions stringify the GraphInterrupt before placing it
-  // on the event; the JSON portion at the start of the string is the
-  // interrupts array.
-  if (typeof err === "string") {
-    const match = err.match(/^\s*(\[[\s\S]*?\])/);
-    if (match) {
-      try {
-        const arr = JSON.parse(match[1]);
-        if (Array.isArray(arr) && arr.length > 0) {
-          return arr[0]?.value ?? null;
-        }
-      } catch {
-        return null;
-      }
-    }
-  }
+  // Raw JSON-serialised interrupts array string
+  if (typeof err === "string") return extractInterruptJsonValue(err);
+  // Plain Error whose .message is the serialised interrupt array
+  if (err instanceof Error && err.message) return extractInterruptJsonValue(err.message);
   return null;
 }
 
@@ -232,11 +254,13 @@ export async function streamGraphToUIMessageStream(
     },
     onError: (err) => {
       // Defensive: if a GraphInterrupt slips past our handlers and reaches
-      // here, its `.message` is the full interrupt JSON which would be
-      // rendered as a red error chunk to the user. Suppress it — the
-      // interrupt was already surfaced as tool-input-available upstream.
+      // here, suppress it — the interrupt was already surfaced as
+      // tool-input-available upstream. Also check the string representation
+      // in case the error was re-wrapped by LangChain's tool machinery.
       if (looksLikeGraphInterrupt(err)) return "";
-      return err instanceof Error ? err.message : String(err);
+      const msg = err instanceof Error ? err.message : String(err ?? "");
+      if (INTERRUPT_NAME_RE.test(msg)) return "";
+      return msg;
     },
     onFinish: async ({ responseMessage }) => {
       const text = messageToText(responseMessage);

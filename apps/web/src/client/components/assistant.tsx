@@ -2,7 +2,6 @@
 
 import {
   AssistantRuntimeProvider,
-  useAssistantToolUI,
   useAuiState,
 } from "@assistant-ui/react";
 import { AssistantChatTransport, useChatRuntime } from "@assistant-ui/react-ai-sdk";
@@ -15,7 +14,7 @@ import type { Tool, ThreadMeta } from "@aliwei/domain/types";
 import { TOOLS, findTool } from "@aliwei/domain/tools";
 import { ThreadContext } from "@/client/contexts/thread-context";
 import { ThreadListSidebar } from "@/client/components/threadlist-sidebar";
-import { AskUserCard } from "@/client/components/ask-user-card";
+import { AskUserToolUI } from "@aliwei/ui/assistant-ui/ask-user-tool";
 import { apiFetch, apiUrl } from "@/client/lib/api";
 import { useCallback, useContext, useEffect, useRef, useState, type FC } from "react";
 
@@ -33,25 +32,6 @@ function ThreadCompletionDetector({ onComplete }: { onComplete: () => void }) {
   return null;
 }
 
-function AskUserToolUIRegistrar() {
-  // useAssistantToolUI is marked deprecated by upstream, but the Thread we
-  // use dispatches tool parts via `part.toolUI` (set by this hook), so it is
-  // still the cleanest way to override the default ToolFallback (Allow/Deny)
-  // for ask_user without forking thread.tsx.
-  //
-  // display: "standalone" routes the part to the synthetic
-  // "standalone-tool-call" group in MessageGroupedParts. thread.tsx maps
-  // that group to "group-standalone-tool", which renders the tool UI
-  // directly (no "Used tool" collapsible wrapper) — exactly what we want
-  // for a question waiting on user input.
-  // eslint-disable-next-line @typescript-eslint/no-deprecated
-  useAssistantToolUI({
-    toolName: "ask_user",
-    render: AskUserCard,
-    display: "standalone",
-  });
-  return null;
-}
 
 const ToolWelcome: FC = () => {
   const { activeTool } = useContext(ThreadContext);
@@ -136,7 +116,7 @@ function ChatView({ threadId, initialMessages, activeTool, onMessagesChanged }: 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <ThreadCompletionDetector onComplete={stableOnMessagesChanged} />
-      <AskUserToolUIRegistrar />
+      <AskUserToolUI />
       <Thread components={{ Welcome: ToolWelcome, ComposerFooter: ToolButtons }} />
     </AssistantRuntimeProvider>
   );
