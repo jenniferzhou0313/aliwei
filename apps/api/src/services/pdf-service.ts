@@ -97,6 +97,5 @@ export async function extractDocumentText(file: File): Promise<string> {
     result = await extractPdf(buffer);
   }
 
-  console.log("[parse-document] extracted:", result.slice(0, 200));
   return result;
 }
