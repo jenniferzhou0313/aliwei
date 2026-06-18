@@ -7,6 +7,7 @@ import { writeFile, unlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createRequire } from "node:module";
+import { randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { getLlmClient } from "@/services/llm-client";
 
@@ -25,7 +26,7 @@ async function extractDocx(buffer: Buffer): Promise<string> {
 }
 
 async function extractDoc(buffer: Buffer): Promise<string> {
-  const tempPath = join(tmpdir(), `aliwei-${Date.now()}.doc`);
+  const tempPath = join(tmpdir(), `aliwei-${randomUUID()}.doc`);
   try {
     await writeFile(tempPath, buffer);
     const extractor = new WordExtractor();

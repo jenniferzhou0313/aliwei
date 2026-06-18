@@ -26,14 +26,12 @@
     "dotenv": "^17.4.2",
     "hono": "^4.6.14",
     "mammoth": "^1.12.0",
-    "pdf-parse": "^2.4.5",
     "pdfjs-dist": "^6.0.227",
     "word-extractor": "^1.0.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^25.9.2",
-    "@types/pdf-parse": "^1.1.5",
     "@vitest/coverage-v8": "^4.1.9",
     "oxfmt": "^0.53.0",
     "oxlint": "^1.68.0",
