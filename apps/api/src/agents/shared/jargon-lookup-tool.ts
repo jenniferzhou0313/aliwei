@@ -13,17 +13,13 @@ export const jargonLookupTool = tool(
   },
   {
     name: "lookup_jargon",
-    description:
-      "在阿里黑话词库中查询一个或多个词条（模糊匹配），按查询词分组返回结果。",
+    description: "在阿里黑话词库中查询一个或多个词条（模糊匹配），按查询词分组返回结果。",
     schema: z.object({
       terms: z
         .array(z.string())
         .min(1)
         .describe("要查询的黑话词列表，支持模糊匹配，可一次查询多个词"),
-      fields: z
-        .array(fieldsEnum)
-        .optional()
-        .describe("指定返回哪些字段；省略则返回全部字段"),
+      fields: z.array(fieldsEnum).optional().describe("指定返回哪些字段；省略则返回全部字段"),
     }),
   },
 );

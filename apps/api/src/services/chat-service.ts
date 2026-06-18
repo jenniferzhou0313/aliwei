@@ -50,7 +50,9 @@ function getLastAssistantText(messages: UIMessage[]): string {
   }
   return parts
     .slice(lastStepIdx)
-    .filter((p): p is { type: "text"; text: string } => p.type === "text" && typeof p.text === "string")
+    .filter(
+      (p): p is { type: "text"; text: string } => p.type === "text" && typeof p.text === "string",
+    )
     .map((p) => p.text)
     .join("");
 }

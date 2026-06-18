@@ -52,8 +52,6 @@ describe("lookupJargonByTerms", () => {
   it("treats empty fields array as return-all", () => {
     const resultAll = lookupJargonByTerms(["怼"]);
     const resultEmpty = lookupJargonByTerms(["怼"], []);
-    expect(Object.keys(resultEmpty["怼"][0])).toHaveLength(
-      Object.keys(resultAll["怼"][0]).length,
-    );
+    expect(Object.keys(resultEmpty["怼"][0])).toHaveLength(Object.keys(resultAll["怼"][0]).length);
   });
 });

@@ -24,16 +24,12 @@ describe("jargonLookupTool", () => {
 
   it("schema rejects invalid field names", () => {
     const schema = jargonLookupTool.schema as any;
-    expect(() =>
-      schema.parse({ terms: ["怼"], fields: ["nonExistentField"] }),
-    ).toThrow();
+    expect(() => schema.parse({ terms: ["怼"], fields: ["nonExistentField"] })).toThrow();
   });
 
   it("schema accepts valid field names", () => {
     const schema = jargonLookupTool.schema as any;
-    expect(() =>
-      schema.parse({ terms: ["怼"], fields: ["jargon", "definition"] }),
-    ).not.toThrow();
+    expect(() => schema.parse({ terms: ["怼"], fields: ["jargon", "definition"] })).not.toThrow();
   });
 
   it("invoke returns JSON with grouped results", async () => {
