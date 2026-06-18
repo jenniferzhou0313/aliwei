@@ -15,7 +15,7 @@ type ChatRequest = {
   system?: string;
   tools?: Record<string, { description?: string; parameters: unknown }>;
   threadId?: string;
-  agentId?: string | null; // renamed from toolId; null when no agent is active
+  agentId?: string | null; // null when no agent is active
   userId: string;
 };
 
