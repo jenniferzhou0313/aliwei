@@ -2,8 +2,8 @@
 
 import {
   AssistantRuntimeProvider,
-  useAui,
   useAuiState,
+  useThreadRuntime,
 } from "@assistant-ui/react";
 import { AssistantChatTransport, useChatRuntime } from "@assistant-ui/react-ai-sdk";
 import { lastAssistantMessageIsCompleteWithToolCalls, type UIMessage } from "ai";
@@ -38,15 +38,18 @@ function getLastUserText(messages: UIMessage[]): string {
 }
 
 // Auto-sends a message on mount (used after agent switch to forward the original message).
+// useThreadRuntime({ optional: true }) returns null instead of throwing when the
+// AssistantRuntimeProvider hasn't registered its thread scope yet (React runs
+// children's effects before parents', so the scope may not be ready on the
+// first effect tick). The [threadRuntime] dep re-fires once it becomes available.
 function AutoSender({ text }: { text: string }) {
-  const aui = useAui();
+  const threadRuntime = useThreadRuntime({ optional: true });
   const sentRef = useRef(false);
   useEffect(() => {
-    if (sentRef.current || !text) return;
+    if (!threadRuntime || sentRef.current || !text) return;
     sentRef.current = true;
-    aui.thread().append({ role: "user", content: [{ type: "text", text }], startRun: true });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // fire once on mount
+    threadRuntime.append({ role: "user", content: [{ type: "text", text }], startRun: true });
+  }, [threadRuntime]); // eslint-disable-line react-hooks/exhaustive-deps
   return null;
 }
 
