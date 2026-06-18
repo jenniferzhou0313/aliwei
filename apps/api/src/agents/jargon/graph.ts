@@ -6,9 +6,7 @@ import { BaseState } from "../base/state";
 import { JARGON_TOOL_PROMPT, buildSystemPrompt } from "../shared/prompts";
 import { streamGraphToUIMessageStream } from "../shared/stream-adapter";
 
-export function createJargonGraph(
-  model: BaseChatModel,
-): CompiledStateGraph<any, any, any> {
+export function createJargonGraph(model: BaseChatModel): CompiledStateGraph<any, any, any> {
   return createBaseGraph({
     agentId: "jargon",
     stateAnnotation: BaseState,

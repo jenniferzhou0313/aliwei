@@ -7,9 +7,7 @@ import { START_AGENT_PROMPT, buildSystemPrompt } from "../shared/prompts";
 import { suggestAgentTool } from "../shared/suggest-agent-tool";
 import { streamGraphToUIMessageStream } from "../shared/stream-adapter";
 
-export function createStartGraph(
-  model: BaseChatModel,
-): CompiledStateGraph<any, any, any> {
+export function createStartGraph(model: BaseChatModel): CompiledStateGraph<any, any, any> {
   return createBaseGraph({
     agentId: "start",
     stateAnnotation: BaseState,

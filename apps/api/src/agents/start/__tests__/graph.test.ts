@@ -20,10 +20,10 @@ describe("start graph", () => {
     });
     const graph = createStartGraph(fake as any);
 
-    const result = await graph.invoke(
+    const result = (await graph.invoke(
       { messages: [new HumanMessage("你好")], threadId: "t-start-1", agentId: "start" } as any,
       { configurable: { thread_id: "t-start-1" } },
-    ) as any;
+    )) as any;
 
     expect(result.messages.length).toBe(2);
     expect((result.messages[1] as AIMessage).content).toContain("你好");

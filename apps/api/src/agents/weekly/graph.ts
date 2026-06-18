@@ -6,9 +6,7 @@ import { BaseState } from "../base/state";
 import { WEEKLY_TOOL_PROMPT, buildSystemPrompt } from "../shared/prompts";
 import { streamGraphToUIMessageStream } from "../shared/stream-adapter";
 
-export function createWeeklyGraph(
-  model: BaseChatModel,
-): CompiledStateGraph<any, any, any> {
+export function createWeeklyGraph(model: BaseChatModel): CompiledStateGraph<any, any, any> {
   return createBaseGraph({
     agentId: "weekly",
     stateAnnotation: BaseState,

@@ -15,7 +15,7 @@ type ChatRequest = {
   system?: string;
   tools?: Record<string, { description?: string; parameters: unknown }>;
   threadId?: string;
-  agentId?: string | null;     // renamed from toolId; null when no agent is active
+  agentId?: string | null; // renamed from toolId; null when no agent is active
   userId: string;
 };
 
@@ -118,7 +118,10 @@ type Streamer = (opts: {
   onFinish?: (text: string) => void | Promise<void>;
 }) => Promise<Response>;
 
-const GRAPH_FACTORIES: Record<string, (model: ReturnType<typeof getChatModel>) => ReturnType<typeof createJargonGraph>> = {
+const GRAPH_FACTORIES: Record<
+  string,
+  (model: ReturnType<typeof getChatModel>) => ReturnType<typeof createJargonGraph>
+> = {
   jargon: createJargonGraph,
   weekly: createWeeklyGraph,
   okr: createOkrGraph,
@@ -142,7 +145,12 @@ export async function streamChat(req: ChatRequest) {
   if (!existingThread) {
     const firstUserMsg = req.messages.find((m) => m.role === "user");
     const title = firstUserMsg ? extractText(firstUserMsg).slice(0, 20) || "新对话" : "新对话";
-    createThread({ id: currentThreadId, userId: req.userId, title, agentId: agentId === "start" ? null : agentId });
+    createThread({
+      id: currentThreadId,
+      userId: req.userId,
+      title,
+      agentId: agentId === "start" ? null : agentId,
+    });
   }
 
   const model = getChatModel();

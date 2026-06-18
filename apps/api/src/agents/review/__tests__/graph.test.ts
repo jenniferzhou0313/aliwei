@@ -20,10 +20,10 @@ describe("review graph", () => {
     });
     const graph = createReviewGraph(fake as any);
 
-    const result = await graph.invoke(
+    const result = (await graph.invoke(
       { messages: [new HumanMessage("复盘 Q3")], threadId: "t-rev-1", agentId: "review" } as any,
       { configurable: { thread_id: "t-rev-1" } },
-    ) as any;
+    )) as any;
 
     expect(result.messages.length).toBe(2);
     expect((result.messages[1] as AIMessage).content).toBe("已为你生成复盘建议");

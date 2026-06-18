@@ -20,10 +20,14 @@ describe("weekly graph", () => {
     });
 
     const graph = createWeeklyGraph(fake as any);
-    const result = await graph.invoke(
-      { messages: [new HumanMessage("总结一下本周工作")], threadId: "t-w1", agentId: "weekly" } as any,
+    const result = (await graph.invoke(
+      {
+        messages: [new HumanMessage("总结一下本周工作")],
+        threadId: "t-w1",
+        agentId: "weekly",
+      } as any,
       { configurable: { thread_id: "t-w1" } },
-    ) as any;
+    )) as any;
 
     expect(result.messages.length).toBe(2);
     expect(result.messages[0]).toBeInstanceOf(HumanMessage);

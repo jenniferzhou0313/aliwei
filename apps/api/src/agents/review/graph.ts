@@ -6,9 +6,7 @@ import { ReviewState } from "../base/state";
 import { REVIEW_TOOL_PROMPT, buildSystemPrompt } from "../shared/prompts";
 import { streamGraphToUIMessageStream } from "../shared/stream-adapter";
 
-export function createReviewGraph(
-  model: BaseChatModel,
-): CompiledStateGraph<any, any, any> {
+export function createReviewGraph(model: BaseChatModel): CompiledStateGraph<any, any, any> {
   return createBaseGraph({
     agentId: "review",
     stateAnnotation: ReviewState as any,

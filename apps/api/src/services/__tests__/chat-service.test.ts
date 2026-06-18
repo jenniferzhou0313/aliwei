@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { resetChatModel } from "@/agents/base/model";
 import { resetCheckpointer } from "@/agents/base/checkpointer";
-import { streamChat, lastUserText, detectAskUserResume, detectSuggestAgentResume } from "../chat-service";
+import {
+  streamChat,
+  lastUserText,
+  detectAskUserResume,
+  detectSuggestAgentResume,
+} from "../chat-service";
 import type { UIMessage } from "ai";
 
 describe("streamChat", () => {

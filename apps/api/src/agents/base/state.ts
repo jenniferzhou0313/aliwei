@@ -18,7 +18,7 @@ export const BaseState = Annotation.Root({
     default: () => [],
   }),
   threadId: Annotation<string>(),
-  agentId: Annotation<string>(),   // renamed from toolId
+  agentId: Annotation<string>(), // renamed from toolId
   system: Annotation<string>(),
 });
 

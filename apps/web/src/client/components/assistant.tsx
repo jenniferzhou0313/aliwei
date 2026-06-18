@@ -1,10 +1,6 @@
 "use client";
 
-import {
-  AssistantRuntimeProvider,
-  useAuiState,
-  useThreadRuntime,
-} from "@assistant-ui/react";
+import { AssistantRuntimeProvider, useAuiState, useThreadRuntime } from "@assistant-ui/react";
 import { AssistantChatTransport, useChatRuntime } from "@assistant-ui/react-ai-sdk";
 import { lastAssistantMessageIsCompleteWithToolCalls, type UIMessage } from "ai";
 import { Thread } from "@aliwei/ui/assistant-ui/thread";
@@ -138,7 +134,13 @@ type ChatViewProps = {
   onMessagesChanged: () => void;
 };
 
-function ChatView({ threadId, initialMessages, activeAgent, autoSendText, onMessagesChanged }: ChatViewProps) {
+function ChatView({
+  threadId,
+  initialMessages,
+  activeAgent,
+  autoSendText,
+  onMessagesChanged,
+}: ChatViewProps) {
   const runtime = useChatRuntime({
     messages: initialMessages,
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
@@ -235,16 +237,13 @@ export const Assistant: FC = () => {
     }
   }, []);
 
-  const handleThreadComplete = useCallback(
-    async () => {
-      await refreshThreads();
-      const ps = pendingSwitchRef.current;
-      if (ps) {
-        await doAgentSwitch(ps, thread.id);
-      }
-    },
-    [refreshThreads, doAgentSwitch, thread.id],
-  );
+  const handleThreadComplete = useCallback(async () => {
+    await refreshThreads();
+    const ps = pendingSwitchRef.current;
+    if (ps) {
+      await doAgentSwitch(ps, thread.id);
+    }
+  }, [refreshThreads, doAgentSwitch, thread.id]);
 
   const newThread = useCallback((agent?: Agent) => {
     setThread({ id: crypto.randomUUID(), messages: [] });

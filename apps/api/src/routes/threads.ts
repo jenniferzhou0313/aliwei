@@ -21,7 +21,7 @@ app.patch("/:id", async (c) => {
   if (!thread || thread.userId !== userId) {
     return c.json({ error: "Not found" }, 404);
   }
-  const body = await c.req.json() as { agentId?: string };
+  const body = (await c.req.json()) as { agentId?: string };
   updateThread(id, { agentId: body.agentId });
   return c.json({ ok: true });
 });

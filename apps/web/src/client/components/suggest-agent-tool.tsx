@@ -2,10 +2,7 @@
 
 import { useRef, useContext } from "react";
 import { ArrowRightIcon, CheckIcon, XIcon } from "lucide-react";
-import {
-  useAssistantToolUI,
-  type ToolCallMessagePartComponent,
-} from "@assistant-ui/react";
+import { useAssistantToolUI, type ToolCallMessagePartComponent } from "@assistant-ui/react";
 import { cn } from "@aliwei/ui/cn";
 import { findAgent } from "@aliwei/domain/agents";
 import { ThreadContext } from "@/client/contexts/thread-context";
@@ -19,10 +16,12 @@ type SuggestAgentResult = {
   confirmed: boolean;
 };
 
-const SuggestAgentTool: ToolCallMessagePartComponent<
-  SuggestAgentArgs,
-  SuggestAgentResult
-> = ({ args, result, status, addResult }) => {
+const SuggestAgentTool: ToolCallMessagePartComponent<SuggestAgentArgs, SuggestAgentResult> = ({
+  args,
+  result,
+  status,
+  addResult,
+}) => {
   const submittedRef = useRef(false);
   const { requestAgentSwitch } = useContext(ThreadContext);
   const isComplete = status?.type === "complete";
@@ -52,9 +51,7 @@ const SuggestAgentTool: ToolCallMessagePartComponent<
         <div className="text-xs text-muted-foreground mb-1">推荐切换到</div>
         <div className="text-sm font-semibold">「{agentLabel}」</div>
       </div>
-      <div className="px-4 py-2.5 text-sm text-muted-foreground border-b">
-        {args.reason}
-      </div>
+      <div className="px-4 py-2.5 text-sm text-muted-foreground border-b">{args.reason}</div>
       {isComplete ? (
         <div className="flex items-center gap-1.5 px-4 py-2.5 text-sm text-muted-foreground">
           {result?.confirmed ? (

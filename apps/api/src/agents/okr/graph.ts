@@ -6,9 +6,7 @@ import { OkrState } from "../base/state";
 import { OKR_TOOL_PROMPT, buildSystemPrompt } from "../shared/prompts";
 import { streamGraphToUIMessageStream } from "../shared/stream-adapter";
 
-export function createOkrGraph(
-  model: BaseChatModel,
-): CompiledStateGraph<any, any, any> {
+export function createOkrGraph(model: BaseChatModel): CompiledStateGraph<any, any, any> {
   return createBaseGraph({
     agentId: "okr",
     stateAnnotation: OkrState as any,
