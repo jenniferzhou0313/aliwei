@@ -29,4 +29,16 @@ describe("QwenAdapter.extractFinalTextFromEndEvent", () => {
       adapter.extractFinalTextFromEndEvent({ output: { content: "hello" } }),
     ).toBe("hello");
   });
+
+  it("concatenates multiple text parts in array content (preserves pre-refactor behavior)", () => {
+    const data = {
+      output: {
+        content: [
+          { type: "text", text: "hello " },
+          { type: "text", text: "world" },
+        ],
+      },
+    };
+    expect(adapter.extractFinalTextFromEndEvent(data)).toBe("hello world");
+  });
 });

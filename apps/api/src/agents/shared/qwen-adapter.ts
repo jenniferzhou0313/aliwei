@@ -38,15 +38,22 @@ export class QwenAdapter implements ModelAdapter {
 }
 
 function firstTextOf(content: unknown): string {
+  // Concatenate all text parts (matches pre-refactor behavior in stream-adapter.ts
+  // where extractTextDeltas(c).join("") was used). This preserves "no behavior
+  // change" invariant: Qwen's realistic payloads are single text strings or
+  // single text-part arrays, so this matches firstText's prior behavior on
+  // realistic inputs and avoids narrowing on multi-part arrays.
   if (typeof content === "string") return content;
   if (Array.isArray(content)) {
+    const parts: string[] = [];
     for (const part of content) {
-      if (typeof part === "string" && part.length > 0) return part;
-      if (part && typeof part === "object" && (part as any).type === "text") {
+      if (typeof part === "string" && part.length > 0) parts.push(part);
+      else if (part && typeof part === "object" && (part as any).type === "text") {
         const t = (part as any).text;
-        if (typeof t === "string" && t.length > 0) return t;
+        if (typeof t === "string" && t.length > 0) parts.push(t);
       }
     }
+    return parts.join("");
   }
   return "";
 }
