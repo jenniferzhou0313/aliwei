@@ -82,7 +82,7 @@ describe("invariant I7: tool-input-available not duplicated per toolCallId", () 
 });
 
 // I8 (KNOWN BUG): prefixBuffer 在流关闭时 flush 后,文本跟 skipPrefix 匹配部分可能不空
-// 此 invariant 在状态机化过程中揭示了 stream-adapter.ts:272-278 既有 bug
+// 此 invariant 在状态机化过程中揭示了 stream-adapter.ts:246-253 既有 bug
 // 本测试标记为 expected-to-fail,作为 bug 发现的载体
 describe("invariant I8: prefix buffer flush respects skipPrefix (KNOWN BUG, deferred to future PR)", () => {
   it("flushed prefix buffer text does not contain the skip prefix", async () => {
@@ -97,5 +97,32 @@ describe("invariant I8: prefix buffer flush respects skipPrefix (KNOWN BUG, defe
     // If this fails, the known bug is present. Documented in spec §8.
     // After skipping the prefix, the combined text should be "的世界", not "你看到的世界".
     expect(combined).toBe("的世界");
+  });
+
+  it("[bug-reproduction] streaming chunks that never reach skipPrefix.length before stream end", async () => {
+    // The I8 scenario above uses on_chat_model_end which has its own skipPrefix
+    // stripping. The actual bug is in the finally-clause flush (line 246-253):
+    // when on_chat_model_stream chunks accumulate a prefixBuffer that is shorter
+    // than skipPrefix.length and the stream ends, the buffer is emitted as-is
+    // without checking whether the buffer equals (or starts with) skipPrefix.
+    //
+    // skipPrefix = "abcdef" (6 chars)
+    // Stream sends "ab" then ends. The prefixBuffer holds "ab", which is shorter
+    // than skipPrefix, so prefixDone never becomes true. The finally clause
+    // flushes "ab" to the client — but "ab" IS the start of the skipPrefix echo,
+    // so it should NOT be emitted (or should be fully suppressed).
+    const skipPrefix = "abcdef";
+    const graph = makeGraph([
+      { event: "on_chat_model_start", data: {}, name: "ChatModel", run_id: "m-i8s", tags: [], metadata: {} },
+      { event: "on_chat_model_stream", data: { chunk: { content: "ab" } }, name: "ChatModel", run_id: "m-i8s", tags: [], metadata: {} },
+      // Stream ends — the finally clause will flush sm.prefixBuffer
+    ]);
+    const chunks = await readChunks(await streamGraphToUIMessageStream(graph, {} as any, "t-i8s", undefined, { isResume: true, skipPrefix }));
+    const textDeltas = chunks.filter((c) => c.type === "text-delta").map((c) => (c as any).delta as string);
+    const combined = textDeltas.join("");
+    // The known bug emits "ab" — but "ab" is the beginning of the skipPrefix
+    // echo and should be suppressed. The expected behavior (post-fix) is the
+    // empty string. This test will fail until stream-adapter.ts:246-253 is fixed.
+    expect(combined).toBe("");
   });
 });
