@@ -3,6 +3,7 @@ import { Command, isGraphInterrupt } from "@langchain/langgraph";
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from "ai";
 import { getModelAdapter } from "@/agents/base/model";
 import type { ModelAdapter } from "./model-adapter";
+import { StreamStateMachine } from "./stream-state";
 
 export { Command };
 
@@ -85,30 +86,17 @@ export async function streamGraphToUIMessageStream(
   const adapter = deps?.modelAdapter ?? getModelAdapter();
   const messageId = crypto.randomUUID();
   let textId = crypto.randomUUID();
-  let textOpen = false;
-  let stepOpen = false;
   let finishedNormally = true;
   const skipPrefix = options?.skipPrefix ?? "";
   // Streaming path: buffer text until we can determine whether it starts with
   // the skip prefix. Once determined, either discard the prefix chars and emit
   // the remainder, or emit everything unchanged (model isn't echoing).
-  let prefixBuffer = "";
   let prefixDone = skipPrefix.length === 0;
-  // When resuming an interrupted graph, langgraph re-plays the same tool
-  // node (re-enters the tool function so interrupt() can return). That
-  // surfaces as a fresh on_tool_start/on_tool_end pair with a NEW run_id.
-  // The client's tool part is already in output-available (set by the
-  // user's addResult), so re-emitting tool-input-available would create a
-  // duplicate part and re-emitting tool-output-available with the new
-  // run_id would not match any existing part. Either way the UI looks
-  // wrong. Solution: skip tool events only during the replay phase
-  // (before the LLM starts its next turn). Once on_chat_model_start fires,
-  // we've entered a new LLM step and any subsequent tool calls are fresh —
-  // they must be shown to the user (e.g. a second ask_user question).
-  let skipToolEvents = options?.isResume === true;
-  // Track tool calls that have had tool-input-available written, so we don't
-  // double-write or send a final output for an interrupted call.
-  const inputSent = new Set<string>();
+  // Stream state machine encapsulates the remaining state (textOpen, stepOpen,
+  // skipToolEvents, inputSent, prefixBuffer) into explicit phase transitions
+  // and named predicates. The phase machinery gives us a single place to
+  // reason about event ordering and an invariant surface for tests.
+  const sm = new StreamStateMachine({ isResume: options?.isResume === true });
 
   const uiStream = createUIMessageStream({
     execute: async ({ writer }) => {
@@ -129,18 +117,18 @@ export async function streamGraphToUIMessageStream(
             // forever resending POST /chat.
             // Also marks end of the replay phase: any tool calls the LLM
             // makes from this point are new and must be surfaced to the client.
-            skipToolEvents = false;
-            if (textOpen) {
+            sm.noteChatModelStart();
+            if (sm.isTextOpen) {
               writer.write({ type: "text-delta", id: textId, delta: "\n\n" } as any);
               writer.write({ type: "text-end", id: textId } as any);
-              textOpen = false;
+              sm.noteTextEnd();
             }
-            if (stepOpen) {
+            if (sm.isStepOpen) {
               writer.write({ type: "finish-step" } as any);
+              sm.noteFinishStep();
             }
             textId = crypto.randomUUID();
             writer.write({ type: "start-step" } as any);
-            stepOpen = true;
           } else if (event.event === "on_chat_model_stream") {
             const rawDeltas = extractTextDeltas(event.data?.chunk?.content);
             if (rawDeltas.length === 0) continue;
@@ -151,20 +139,20 @@ export async function streamGraphToUIMessageStream(
                 deltas.push(d);
                 continue;
               }
-              prefixBuffer += d;
-              if (prefixBuffer.length >= skipPrefix.length) {
+              sm.appendToPrefixBuffer(d);
+              if (sm.prefixBuffer.length >= skipPrefix.length) {
                 prefixDone = true;
-                const remainder = prefixBuffer.startsWith(skipPrefix)
-                  ? prefixBuffer.slice(skipPrefix.length)
-                  : prefixBuffer;
-                prefixBuffer = "";
+                const remainder = sm.prefixBuffer.startsWith(skipPrefix)
+                  ? sm.prefixBuffer.slice(skipPrefix.length)
+                  : sm.prefixBuffer;
+                sm.consumePrefixBuffer();
                 if (remainder) deltas.push(remainder);
               }
             }
             if (deltas.length === 0) continue;
-            if (!textOpen) {
+            if (!sm.isTextOpen) {
               writer.write({ type: "text-start", id: textId } as any);
-              textOpen = true;
+              sm.noteTextStart();
             }
             for (const d of deltas)
               writer.write({ type: "text-delta", id: textId, delta: d } as any);
@@ -173,19 +161,20 @@ export async function streamGraphToUIMessageStream(
             // the entire response in one shot without on_chat_model_stream
             // events). If we received no stream chunks for this turn, pull
             // the final text out of the end event and emit it once.
-            if (!textOpen) {
+            if (!sm.isTextOpen) {
               let finalText = adapter.extractFinalTextFromEndEvent(event.data);
               if (skipPrefix && finalText.startsWith(skipPrefix)) {
                 finalText = finalText.slice(skipPrefix.length);
               }
               if (finalText) {
                 writer.write({ type: "text-start", id: textId } as any);
+                sm.noteTextStart();
                 writer.write({ type: "text-delta", id: textId, delta: finalText } as any);
-                textOpen = true;
               }
             }
           } else if (event.event === "on_tool_start") {
-            if (skipToolEvents) continue;
+            if (sm.skipToolEvents) continue;
+            sm.noteToolStart();
             const id = event.run_id;
             const name = event.name;
             writer.write({
@@ -199,9 +188,10 @@ export async function streamGraphToUIMessageStream(
               toolName: name,
               input: adapter.unwrapToolInput(event.data?.input),
             } as any);
-            inputSent.add(id);
+            sm.markInputSent(id);
           } else if (event.event === "on_tool_end") {
-            if (skipToolEvents) continue;
+            if (sm.skipToolEvents) continue;
+            sm.noteToolEnd();
             const out = event.data?.output;
             writer.write({
               type: "tool-output-available",
@@ -209,7 +199,7 @@ export async function streamGraphToUIMessageStream(
               output: typeof out === "string" ? out : JSON.stringify(out),
             } as any);
           } else if (event.event === "on_tool_error") {
-            if (skipToolEvents) continue;
+            if (sm.skipToolEvents) continue;
             // langgraph's interrupt() surfaces as on_tool_error with a
             // GraphInterrupt payload. Re-emit tool-input-available using the
             // interrupt value so the client renders the question with the
@@ -220,13 +210,13 @@ export async function streamGraphToUIMessageStream(
             const name = event.name;
             const interruptValue = extractInterruptValue(event.data?.error);
             if (interruptValue !== null) {
-              if (!inputSent.has(id)) {
+              if (!sm.hasInputSent(id)) {
                 writer.write({
                   type: "tool-input-start",
                   toolCallId: id,
                   toolName: name,
                 } as any);
-                inputSent.add(id);
+                sm.markInputSent(id);
               }
               writer.write({
                 type: "tool-input-available",
@@ -253,21 +243,29 @@ export async function streamGraphToUIMessageStream(
       } finally {
         // Flush streaming prefix buffer if the model finished before we
         // accumulated enough chars to determine a match.
-        if (!prefixDone && prefixBuffer) {
-          if (!textOpen) {
+        if (!prefixDone && sm.prefixBuffer) {
+          if (!sm.isTextOpen) {
             writer.write({ type: "text-start", id: textId } as any);
-            textOpen = true;
+            sm.noteTextStart();
           }
-          writer.write({ type: "text-delta", id: textId, delta: prefixBuffer } as any);
+          writer.write({ type: "text-delta", id: textId, delta: sm.prefixBuffer } as any);
+          sm.consumePrefixBuffer();
         }
-        if (textOpen) writer.write({ type: "text-end", id: textId } as any);
+        if (sm.isTextOpen) {
+          writer.write({ type: "text-end", id: textId } as any);
+          sm.noteTextEnd();
+        }
         // Always close the open step. Suppressing finish-step on interrupt
         // (the previous design) meant assistant-ui never marked the step
         // as complete, which kept lastAssistantMessageIsCompleteWithToolCalls
         // returning true — leading to a POST /chat loop. The client now
         // distinguishes "interrupted, waiting on user" via the tool part's
         // input-available state, not via the missing finish-step.
-        if (stepOpen) writer.write({ type: "finish-step" } as any);
+        if (sm.isStepOpen) {
+          writer.write({ type: "finish-step" } as any);
+          sm.noteFinishStep();
+        }
+        sm.noteClosed();
         // finishedNormally is no longer used to gate finish-step; keep the
         // local so future error handling (logging, metrics) can still see it.
         void finishedNormally;
