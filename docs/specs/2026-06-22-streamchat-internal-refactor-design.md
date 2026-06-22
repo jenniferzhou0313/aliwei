@@ -470,7 +470,7 @@ export async function streamChat(req: ChatRequest) {
 
 ## 8. 状态:已知问题(不在本 spec 范围)
 
-阶段 2 状态机化过程中,不变量 I8("`prefixBuffer` 在流关闭时 flush 后,整个文本跟 `skipPrefix` 的匹配部分为空")**很可能揭露一个已存在 bug**:
+阶段 2 状态机化过程中,不变量 I8("`prefixBuffer` 在流关闭时 flush 后,整个文本跟 `skipPrefix` 的匹配部分为空")**确认揭露一个已存在 bug**(见附录 B 详细复现):
 
 - **位置**:`apps/api/src/agents/shared/stream-adapter.ts` 行 272-278
 - **症状**:`on_chat_model_end` 兜底分支(line 187-202)里 `prefixBuffer` 在 finally 中 flush 时,**不做 prefix match**
