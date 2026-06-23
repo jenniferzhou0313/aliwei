@@ -41,4 +41,40 @@ describe("QwenAdapter.extractFinalTextFromEndEvent", () => {
     };
     expect(adapter.extractFinalTextFromEndEvent(data)).toBe("hello world");
   });
+
+  it("skips non-text parts in mixed content arrays", () => {
+    const data = {
+      output: {
+        content: [
+          { type: "text", text: "a" },
+          { type: "image", url: "x" },
+          { type: "text", text: "b" },
+        ],
+      },
+    };
+    expect(adapter.extractFinalTextFromEndEvent(data)).toBe("ab");
+  });
+
+  it("extracts text from data.output.generations[0][0].message.content", () => {
+    const data = {
+      output: {
+        generations: [
+          [
+            {
+              message: { content: "from generations path" },
+            },
+          ],
+        ],
+      },
+    };
+    expect(adapter.extractFinalTextFromEndEvent(data)).toBe(
+      "from generations path",
+    );
+  });
+
+  it("falls back to top-level text field", () => {
+    expect(adapter.extractFinalTextFromEndEvent({ text: "top-level" })).toBe(
+      "top-level",
+    );
+  });
 });
